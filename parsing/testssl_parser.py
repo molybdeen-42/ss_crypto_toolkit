@@ -5,13 +5,13 @@ import sys
 
 # Regex matching voor het maken van cipher lijst met bijbehorende data
 cipher_regex = re.compile(
-    r"^(?P<protocol>TLSv1\.\d)\s+"
+    r"^(?P<protocol>SSLv2|SSLv3|TLSv1(?:\.\d)?)\s+"
     r"x(?P<hexcode>[0-9a-fA-F]+)\s+"
     r"(?P<openssl_name>\S+)\s+"
     r"(?P<kx>RSA|DH|ECDH(?:/\w+)?(?:\s+\d+)?)\s+"
     r"(?P<bulk_cipher>\S+)\s+"
     r"(?P<key_size>\d+)\s+"
-    r"(?P<iana_name>TLS_\S+)$"
+    r"(?P<iana_name>(?:SSL|TLS)_\S+)$"
 )
 
 # Regex matching voor certificates om key size te extracten
@@ -45,7 +45,7 @@ ids = {
     "ALPN",
 }
 
-prefixes = ("cipher-tls1_",)
+prefixes = ("cipher-ssl2_", "cipher-ssl3_", "cipher-tls1_",)
 
 # Lookup tabellen voor certificaten
 certificate_fields = {
