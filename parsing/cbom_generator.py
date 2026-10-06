@@ -23,10 +23,20 @@ hash_map = {
 cryptographic_primitive_map = {
     "AESGCM": ("ae", "gcm"),
     "AESCCM": ("ae", "ccm"),
+    "AESCCM8": ("ae", "ccm"),
     "AES": ("block-cipher", "cbc"),
     "ChaCha20": ("ae", None),
     "Camellia": ("block-cipher", "cbc"),
+    "CamelliaGCM": ("ae", "gcm"),
     "ARIAGCM": ("ae", "gcm"),
+    "ARIA": ("block-cipher", "cbc"),
+    "3DES": ("block-cipher", "cbc"),
+    "DES": ("block-cipher", "cbc"),
+    "IDEA": ("block-cipher", "cbc"),
+    "SEED": ("block-cipher", "cbc"),
+    "RC4": ("stream-cipher", None),
+    "RC2": ("stream-cipher", None),
+    "GOST": ("stream-cipher", None), 
 }
 
 # Idem maar voor elliptic curves gebruikt voor ECC gebaseerde algoritmen
