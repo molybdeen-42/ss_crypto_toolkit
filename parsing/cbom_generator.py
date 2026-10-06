@@ -233,12 +233,11 @@ def certificate_to_component(certificate: dict) -> dict | None:
     if not_before:
         certificate_properties["notValidBefore"] = (
             not_before.replace(" ", "T") + ":00Z"
-        )  # Aanname dat de scanserver in UTC tijd staat
-
+        )  # Tijd in UTC
     if not_after:
         certificate_properties["notValidAfter"] = (
             not_after.replace(" ", "T") + ":00Z"
-        )  # Aanname dat de scanserver in UTC tijd staat
+        )  # Tijd in UTC
 
     # Verwerking public key van het certificaat
     if public_key:

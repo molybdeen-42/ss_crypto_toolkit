@@ -8,7 +8,7 @@ cipher_regex = re.compile(
     r"^(?P<protocol>SSLv2|SSLv3|TLSv1(?:\.\d)?)\s+"
     r"x(?P<hexcode>[0-9a-fA-F]+)\s+"
     r"(?P<openssl_name>\S+)\s+"
-    r"(?P<kx>RSA|DH|ECDH(?:/\w+)?(?:\s+\d+)?)\s+"
+    r"(?P<kx>\S+(?:\s+\d+)?)\s+"
     r"(?P<bulk_cipher>\S+)\s+"
     r"(?P<key_size>\d+)\s+"
     r"(?P<iana_name>(?:SSL|TLS)_\S+)$"
