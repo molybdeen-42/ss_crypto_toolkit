@@ -17,7 +17,7 @@ ports=()
 # Vindt het ip en de port gegeven een line met structuur ip:port en voegt hen toe aan ips en ports
 get_ip_and_port() {
 	local line=$1
-	local line_regex='^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]):[0-9]{1,5}$'
+	local line_regex='^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]):(0|[1-9][0-9]{0,4})$'
 
 	# Matcht de regex waaraan de line dient te voldoen
 	if [[ ! "$line" =~ $line_regex ]]; then
@@ -44,7 +44,7 @@ echo ""
 echo "[+] Lijst met ip adressen in $targets_file verwerken"
 
 # Loop voor het verwerken van de targets file naar input in de variable length arrays
-while IFS= read -r line; do
+while IFS= read -r line || [[ -n "$line" ]]; do
 	[[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
 
 	get_ip_and_port "$line"

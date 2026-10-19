@@ -28,6 +28,17 @@ parse_dir="$base_dir/parsing"
 cbom_dir="$base_dir/cboms"
 targets_file="$base_dir/targets.txt"
 
+# Aanmaken en testen van CBOMs directory
+if [[ ! -d "$cbom_dir" ]]; then
+	echo "[+] Target directory voor CBOMs wordt aangemaakt: $cbom_dir"
+	mkdir -p "$cbom_dir"
+fi
+
+if [[ ! -d "$cbom_dir" ]]; then
+	echo "[!] Fout bij het aanmaken van $cbom_dir"
+	exit 1
+fi
+
 # Scanning tools met de juiste flags starten
 if [[ "$force" == true ]]; then
 	/usr/bin/env bash "$bin_dir/testssl_scan.sh" "-f" "-o" "$output"
@@ -56,22 +67,27 @@ for index in "${!ips[@]}"; do
 
 	if [[ -f "$cbom_dir/${ip}_${port}_cbom.json" ]]; then
 		echo "[+] Oude CBOM wordt verwijderd"
-		rm "$cbom_dir/${ip}_${port}_cbom.json" 
+		rm "$cbom_dir/${ip}_${port}_cbom.json"
 	fi
 
 	echo "[+] Genereren van CBOM voor $ip:$port"
-	if ! /usr/bin/env python3 "$parse_dir/testssl_parser.py" "$base_dir/results/testssl/$output/${ip}_${port}.json" | /usr/bin/env python3 "$parse_dir/cbom_generator.py" -o "$base_dir/cboms/${ip}_${port}_cbom.json"; then
-		echo "[!] CBOM generatie voor $ip:$port is mislukt"
+	/usr/bin/env python3 "$parse_dir/testssl_parser.py" "$base_dir/results/testssl/$output/${ip}_${port}.json" | /usr/bin/env python3 "$parse_dir/cbom_generator.py" -o "$base_dir/cboms/${ip}_${port}_cbom.json"
+
+	exit_code="$?"
+
+	# Alert de gebruiker als de generatie van de CBOM niet is gelukt
+	if [[ "$exit_code" -ne 0 ]]; then
+		echo "[!] CBOM generatie voor $ip:$port is mislukt" >&2
 	fi
 
+	# Unset -e, zodat het falen van dit script de loop niet afbreekt.
+	set +e
 	verification=$("$base_dir/crypto_tools/cyclonedx-cli" "validate" "--input-file" "$cbom_dir/${ip}_${port}_cbom.json" "--input-format" "json" "--input-version" "v1_6" | tail -n 1)
+	set -e
 
 	if [[ "$verification" == "BOM validated successfully." ]]; then
 		echo "[+] ${ip}_${port}_cbom.json is successvol gevalideerd"
 	else
-		echo "
-		[!] Valideren van ${ip}_${port}_cbom.json was niet successvol, run 'bash $base_dir/crypto_tools/cyclonedx-cli validate --input-file 
-		$cbom_dir/${ip}_${port}_cbom.json --input-format json --input-version v1_6 --fail-on-errors' om het probleem te vinden
-		" 
+		echo "[!] Valideren van ${ip}_${port}_cbom.json was niet successvol, run '$base_dir/crypto_tools/cyclonedx-cli validate --input-file $cbom_dir/${ip}_${port}_cbom.json --input-format json --input-version v1_6 --fail-on-errors' om het probleem te vinden"
 	fi
 done

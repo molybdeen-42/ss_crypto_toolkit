@@ -90,8 +90,12 @@ for index in "${!ips[@]}"; do
 		echo "[+] Scan met testssl.sh uitvoeren voor $ip:$port, resultaat in $testssl_log_dir/${ip}_$port.json..."
 
 		# Aanroepen van testssl.sh met als output een jsonfile in de gespecificeerde logging directory
-		if ! /usr/bin/env bash "$base_dir/crypto_tools/testssl.sh-3.2.4/testssl.sh" --jsonfile "$testssl_log_dir/${ip}_$port.json" "$ip:$port" &>/dev/null; then
-			# Waarschuwing naar stdout als de scan mislukt
+		/usr/bin/env bash "$base_dir/crypto_tools/testssl.sh-3.2.4/testssl.sh" --overwrite --jsonfile "$testssl_log_dir/${ip}_$port.json" "$ip:$port" &>/dev/null
+
+		exit_code="$?"
+
+		# Waarschuwing naar stdout als de scan mislukt
+		if [[ "$exit_code" -ne 0 ]]; then
 			echo "[!] Scan mislukt voor $ip:$port" >&2
 		fi
 	else

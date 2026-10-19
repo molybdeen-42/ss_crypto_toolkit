@@ -11,6 +11,12 @@ while [[ $# -gt 0 ]]; do
 			exit 1
 		fi
 
+		# Controle of de directory naam alleen uit letters en cijfers bestaat
+		if [[ ! "$2" =~ ^[[:alnum:]]+$ ]]; then
+			echo "[!] Ongeldige directory naam bij -o flag: $2 (alleen letters en cijfers toegestaan)" >&2
+			exit 1
+		fi
+
 		output="$2"
 		shift 2
 		;;
