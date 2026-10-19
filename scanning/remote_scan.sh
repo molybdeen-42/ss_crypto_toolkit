@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -uo pipefail
 
 # Vinden van de base directory van de crypto toolkit
 start_dir="$(pwd)"
@@ -18,15 +18,13 @@ if [[ "$output" == "" ]] || [[ ! "$output" =~ ^[A-Za-z0-9._-]+$ ]]; then
 	exit 1
 fi
 
-# Verwerking van force flag
-if [[ "$force" == true ]]; then
-	echo "[+] Force flag gezet"
-fi
-
 bin_dir="$base_dir/scanning"
 parse_dir="$base_dir/parsing"
 cbom_dir="$base_dir/cboms"
 targets_file="$base_dir/targets.txt"
+
+# Aanmaken van target variable length arrays voor het bouwen van de CBOM's
+source "$bin_dir/get_targets.sh" "$targets_file"
 
 # Aanmaken en testen van CBOMs directory
 if [[ ! -d "$cbom_dir" ]]; then
@@ -48,17 +46,6 @@ fi
 
 echo ""
 echo "[+] Parsen van logs naar CBOM's"
-
-# Check voor het bestaan van de file met scan targets
-if [[ ! -s "$targets_file" ]]; then
-	echo "[!] De file met targets $targets_file is leeg of bestaat niet"
-	exit 1
-fi
-
-# Aanmaken van target variable length arrays voor het bouwen van de CBOM's
-source "$bin_dir/get_targets.sh" "$targets_file"
-
-echo ""
 
 for index in "${!ips[@]}"; do
 	# Aanname om niet te scannen en extracten van ip en port uit arrays

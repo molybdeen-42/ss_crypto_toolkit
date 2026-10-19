@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -uo pipefail
 
 # Vinden van de base directory van de crypto toolkit
 start_dir="$(pwd)"
@@ -24,17 +24,24 @@ if [[ "$force" == true ]]; then
 fi
 
 # Initialisatie van log directory en target file variabelen
-testssl_log_dir="$base_dir/results/testssl/$output"
+testssl_results_dir="$base_dir/results/testssl"
+testssl_log_dir="$testssl_results_dir/$output"
 targets_file="$base_dir/targets.txt"
 
-echo ""
+# Aanroepen van creatie van ips en targets variable length arrays vanuit target.txt
+source "$base_dir/scanning/get_targets.sh" "$targets_file" &>/dev/null
 
-# Check voor het bestaan van logging directory, aanmaken als nodig
-if [[ ! -d $testssl_log_dir ]]; then
+# Check voor het bestaan van de target logging directory, abort als deze al bestaat en de -f flag niet is gebruikt
+if [[ -d "$testssl_log_dir" ]]; then
+	if [[ "$force" == false ]]; then
+		echo "[!] Log directory $testssl_log_dir bestaat al, eerdere scans worden niet overschreven. Gebruik een andere -o naam of de -f flag" >&2
+		exit 1
+	fi
+
+	echo "[+] Logging directory $testssl_log_dir bestaat al, force flag gezet dus eerdere scans worden overschreven"
+else
 	echo "[+] Log directory $testssl_log_dir wordt aangemaakt"
 	mkdir -p "$testssl_log_dir"
-else
-	echo "[+] Logging directory $testssl_log_dir bestaat al"
 fi
 
 # Check voor het correcte aanmaken van logging directory
@@ -42,9 +49,6 @@ if [[ ! -d $testssl_log_dir ]]; then
 	echo "[!] Fout bij het maken van $testssl_log_dir" >&2
 	exit 1
 fi
-
-# Aanroepen van creatie van ips en targets variable length arrays vanuit target.txt
-source "$base_dir/scanning/get_targets.sh" "$targets_file"
 
 echo ""
 echo "[+] Starten van testssl.sh scan, circa 2 minuten per target"
@@ -56,10 +60,8 @@ for index in "${!ips[@]}"; do
 	ip="${ips[$index]}"
 	port="${ports[$index]}"
 
-	# Vindt de meest recente log van deze combinatie van ip en port
-	newest_occurrence="$(find "$testssl_log_dir" -name "${ip}_$port.json" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d ' ' -f2-)"
-
-	echo ""
+	# Vindt de meest recente log van deze combinatie van ip en port in alle output directories
+	newest_occurrence="$(find "$testssl_results_dir" -name "${ip}_$port.json" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d ' ' -f2-)"
 
 	# Als er een scan aanwezig is, maar de file met targets is recenter aangepast dan het uitvoeren van de voorgaande scan wordt de scan uitgevoerd
 	if [[ -n "$newest_occurrence" ]] && [[ "$targets_file" -nt "$newest_occurrence" ]]; then
@@ -68,9 +70,9 @@ for index in "${!ips[@]}"; do
 		doscan=1
 	fi
 
-	# Als er een scan aanwezig is, maar deze scan is ouder dan 30 dagen wordt de scan alsnog uitgevoerd
-	if [[ -n "$newest_occurrence" ]] && [[ $(date -r "$newest_occurrence" +%s) -lt $(date -d "30 days ago" +%s) ]]; then
-		echo "[+] Log aanwezig in $newest_occurrence, maar deze log is ouder dan 30 dagen. De scan wordt daarom alsnog uitgevoerd"
+	# Als er een scan aanwezig is, maar deze scan is ouder dan 6 dagen wordt de scan alsnog uitgevoerd
+	if [[ -n "$newest_occurrence" ]] && [[ $(date -r "$newest_occurrence" +%s) -lt $(date -d "6 days ago" +%s) ]]; then
+		echo "[+] Log aanwezig in $newest_occurrence, maar deze log is ouder dan 6 dagen. De scan wordt daarom alsnog uitgevoerd"
 
 		doscan=1
 	fi
@@ -90,7 +92,9 @@ for index in "${!ips[@]}"; do
 		echo "[+] Scan met testssl.sh uitvoeren voor $ip:$port, resultaat in $testssl_log_dir/${ip}_$port.json..."
 
 		# Aanroepen van testssl.sh met als output een jsonfile in de gespecificeerde logging directory
+		set +e
 		/usr/bin/env bash "$base_dir/crypto_tools/testssl.sh-3.2.4/testssl.sh" --overwrite --jsonfile "$testssl_log_dir/${ip}_$port.json" "$ip:$port" &>/dev/null
+		set -e
 
 		exit_code="$?"
 
@@ -99,7 +103,13 @@ for index in "${!ips[@]}"; do
 			echo "[!] Scan mislukt voor $ip:$port" >&2
 		fi
 	else
+		# Als de gevonden log in een andere output directory staat wordt deze gekopieerd, zodat de huidige output directory compleet is
 		echo "[!] Scan voor $ip:$port wordt overgeslagen doordat er nog een recente testssl.sh log bestaat, path: $newest_occurrence" >&2
+
+		if [[ "$(dirname "$newest_occurrence")" != "$testssl_log_dir" ]]; then
+			echo "[+] De bestaande log $newest_occurrence wordt gekopieerd naar $testssl_log_dir"
+			cp "$newest_occurrence" "$testssl_log_dir/${ip}_${port}.json"
+		fi
 	fi
 done
 
