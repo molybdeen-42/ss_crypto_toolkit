@@ -2,3 +2,5 @@ crypto_tools
 results
 cboms
 targets.txt
+csv
+__pycache__

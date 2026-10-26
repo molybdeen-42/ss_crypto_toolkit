@@ -8,6 +8,14 @@ Een toolkit voor het maken van een cryptografische inventaris met behulp van Cyc
 - **CBOM parsing**: Scanoutput van doelhosts wordt automatisch omgezet naar het CycloneDX 1.6 CBOM formaat
 - **Validation**: Gegenereerde CBOMs worden gecontroleerd op validiteit
 
+## Algoritmen aanpassen
+
+De matchingregels en algoritmetabellen staan in twee bestanden:
+- `parsing/testssl_algorithms.py`: mappings en regex voor de `testssl_parser.py`.
+- `parsing/cbom_algorithms.py`: mappings en regex voor `cbom_generator.py`.
+
+De parsing scripts `testssl_parser.py` en `cbom_generator.py` importeren deze bestanden. Wanneer aanpassingen nodig zijn kunnen de regex en mappings hier worden veranderd of aangevuld.
+
 ## Quick Start
 
 Start door deze repository te clonen: `git clone https://github.com/molybdeen-42/ss_crypto_toolkit.git`.
@@ -31,7 +39,7 @@ Edit `targets.txt` in de `ss_crypto_toolkit` directory door per line een target 
 
 ### 3. Scannen
 
-De scanscripts maken gebruik van `targets.txt` om de scan uit te voeren op deze targets. De resultaten worden in `ss_crypto_toolkit/results` en `ss_crypto_toolkit/cboms` geplaatst. Een simpele scan kan als volgt worden uitgevoerd:
+De scanscripts maken gebruik van `targets.txt` om de scan uit te voeren op deze targets. De resultaten worden in `ss_crypto_toolkit/results`, `ss_crypto_toolkit/cboms` en mogelijk `ss_crypto_toolkit/csv`. Een simpele scan kan als volgt worden uitgevoerd:
 
 `./scanning/remote_scan.sh -o exampledirectory1`
 
@@ -39,6 +47,10 @@ Om een nieuwe scan te forceren kan de `-f` flag gebruikt worden:
 
 `./scanning/remote_scan.sh -o exampledirectory2 -f`
 
-De ruwe scanresultaten zijn te vinden in `ss_crypto_toolkit/results`, terwijl de meest recente CBOMs aanwezig zijn in `ss_crypto_toolkit`. 
+Met de `--csv` flag wordt na succesvolle CBOM-validatie ook een CSV bestand aangemaakt in `ss_crypto_toolkit/csv. Zonder deze flag worden alleen CBOMs gegenereerd.
+
+`./scanning/remote_scan.sh -o exampledirectory3 --csv`
+
+De ruwe scanresultaten zijn te vinden in `ss_crypto_toolkit/results`, terwijl de meest recente CBOMs en CSVs aanwezig zijn in `ss_crypto_toolkit/cboms` en `ss_crypto_toolkit/csv` respectievelijk.
 
 **LET OP**: De naam van de directory (in het voorbeeld exampledirectory1/2) mag enkel letters en getallen bevatten.

@@ -4,6 +4,7 @@ set -uo pipefail
 
 output=""
 force=false
+csv=false
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -24,6 +25,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-f | --force)
 		force=true
+		shift 1
+		;;
+	--csv)
+		csv=true
 		shift 1
 		;;
 	*)
