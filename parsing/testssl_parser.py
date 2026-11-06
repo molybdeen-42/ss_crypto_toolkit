@@ -32,15 +32,28 @@ def load_testssl(path: str) -> list[dict]:
 
 
 # Haalt het gescande IP-adres uit testssl's hostname/ip-veld
-def extract_ip(data: list[dict]) -> str | None:
+def extract_target(data: list[dict]) -> dict:
     for entry in data:
-        address = entry.get("ip", "").rsplit("/", 1)[-1].strip("[]")
+        raw = entry.get("ip", "")
+        host_part, _, ip_part = raw.rpartition("/")
+
+        # Continue naar volgende entry bij geen geldig IP
         try:
-            return str(ipaddress.ip_address(address))
+            ip = str(ipaddress.ip_address(ip_part.strip("[]")))
         except ValueError:
             continue
 
-    return None
+        # Store enkel het IP als er geen geldige hostname is
+        hostname = None
+        try:
+            ipaddress.ip_address(host_part.strip("[]"))
+        except ValueError:
+            hostname = host_part.strip("[]") or None
+
+        return {"ip": ip, "hostname": hostname}
+
+    # Return tweemaal None als er zowel geen IP als hostname in de data zit
+    return {"ip": None, "hostname": None}
 
 
 # Parsed findings naar een duidelijke output structuur
@@ -153,10 +166,14 @@ def main() -> None:
             else:
                 certificate[target_key] = finding
 
+
+    target = extract_target(data)
+
     # Aggregatie van output variabelen in json
     output = json.dumps(
         {
-            "ip": extract_ip(data),
+            "ip": target["ip"],
+            "hostname": target["hostname"],
             "cipher_suites": cipher_suites,
             "protocols": protocols,
             "key_exchange": key_exchange,

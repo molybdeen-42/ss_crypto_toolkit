@@ -20,12 +20,22 @@ fi
 
 bin_dir="$base_dir/scanning"
 parse_dir="$base_dir/parsing"
-cbom_dir="$base_dir/cboms"
-csv_dir="$base_dir/csv"
+run_date="$(date +%Y-%m-%d)"
+run_output="${output}_${run_date}"
+cbom_dir="$base_dir/cboms/$run_output"
+raw_results_dir="$base_dir/results/testssl/$run_output"
+csv_dir="$base_dir/csv/$run_output"
 targets_file="$base_dir/targets.txt"
 
 # Aanmaken van target variable length arrays voor het bouwen van de CBOM's
 source "$bin_dir/get_targets.sh" "$targets_file"
+
+# Check the dated output paths before creating any report directories.
+if [[ "$force" == false && ( -d "$raw_results_dir" || -d "$cbom_dir" ||
+    ( "$csv" == true && -d "$csv_dir" ) ) ]]; then
+    echo "[!] Resultaat-, CBOM- of aangevraagde CSV-directory voor $run_output bestaat al. Gebruik een andere -o naam of de -f flag." >&2
+    exit 1
+fi
 
 # Aanmaken en testen van CBOMs directory
 if [[ ! -d "$cbom_dir" ]]; then
@@ -51,64 +61,102 @@ if [[ "$csv" == true ]]; then
 	fi
 fi
 
-# Scanning tools met de juiste flags starten
-if [[ "$force" == true ]]; then
-	/usr/bin/env bash "$bin_dir/testssl_scan.sh" "-f" "-o" "$output"
-else
-	/usr/bin/env bash "$bin_dir/testssl_scan.sh" "-o" "$output"
+# Stop only for setup/orchestration failures; individual targets are recorded below.
+scan_args=(-o "$output")
+[[ "$force" == true ]] && scan_args+=(-f)
+if ! SS_CRYPTO_RUN_DATE="$run_date" /usr/bin/env bash "$bin_dir/testssl_scan.sh" "${scan_args[@]}"; then
+    echo "[!] Scan kon niet worden uitgevoerd; controleer de configuratie en scanlogs." >&2
+    exit 1
 fi
 
-echo ""
-echo "[+] Parsen van logs naar CBOM's"
+# Publish this run's failures, including an empty file when every target succeeded.
+failed_targets_file="$cbom_dir/failed_targets.txt"
+if ! cp "$raw_results_dir/failed_targets.txt" "$failed_targets_file"; then
+    echo "[!] Kan failed_targets.txt niet opslaan in $cbom_dir" >&2
+    exit 1
+fi
+declare -A failed_targets=()
+while IFS= read -r failed_target; do
+    [[ -n "$failed_target" ]] && failed_targets["$failed_target"]=1
+done < "$failed_targets_file"
+if [[ -s "$failed_targets_file" ]]; then
+    echo "[!] Mislukte targets: $failed_targets_file. CBOM generatie gaat door voor overige targets." >&2
+fi
 
-for index in "${!ips[@]}"; do
-	ip="${ips[$index]}"
-	port="${ports[$index]}"
+echo "[+] Parsen van logs naar afzonderlijke CBOM's per endpoint"
+report_failed=0
+declare -A report_owners=()
+for index in "${!hosts[@]}"; do
+    host="${hosts[$index]}"
+    port="${ports[$index]}"
+    if [[ -n "${failed_targets["$host:$port"]+present}" ]]; then
+        echo "[!] Geen CBOM voor $host:$port: scan mislukt; zie $failed_targets_file" >&2
+        continue
+    fi
+    raw_file="$raw_results_dir/${host}_${port}.json"
+    endpoint_dir="$raw_results_dir/endpoints/${host}_${port}"
 
-	if [[ -f "$cbom_dir/${ip}_${port}_cbom.json" ]]; then
-		echo "[+] Oude CBOM wordt verwijderd"
-		rm "$cbom_dir/${ip}_${port}_cbom.json"
-	fi
+    if endpoint_files=$(python3 "$parse_dir/split_testssl.py" "$raw_file" "$endpoint_dir"); then
+        :
+    else
+        echo "[!] Splitsen mislukt voor $host:$port" >&2
+        report_failed=1
+        continue
+    fi
 
-	echo "[+] Genereren van CBOM voor $ip:$port"
-	set +e
-	/usr/bin/env python3 "$parse_dir/testssl_parser.py" "$base_dir/results/testssl/$output/${ip}_${port}.json" | /usr/bin/env python3 "$parse_dir/cbom_generator.py" -o "$base_dir/cboms/${ip}_${port}_cbom.json"
+    # Only consume files emitted by this invocation, never old directory entries.
+    while IFS= read -r endpoint_file; do
+        endpoint_name="$(basename "$endpoint_file" .json)"
+        # Internal split filenames are ipvN_<safe-ip>_<port>_<hostname-hash>.
+        # Hostname targets get a readable prefix; IP targets avoid repeating the IP.
+        endpoint_identity="${endpoint_name#ipv[46]_}"
+        endpoint_identity="${endpoint_identity%_*}"
+        report_prefix=""
+        if [[ ! "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            report_prefix="${host}_"
+        fi
+        report_name="${report_prefix}${endpoint_identity}_${run_date}_cbom"
+        # Keep a collision guard so reports cannot silently overwrite another target.
+        if [[ -n "${report_owners[$report_name]+present}" &&
+              "${report_owners[$report_name]}" != "$host" ]]; then
+            echo "[!] Bestandsnaamconflict voor $report_name: ${report_owners[$report_name]} en $host delen hetzelfde IP en poort; rapport wordt niet overschreven." >&2
+            report_failed=1
+            continue
+        fi
+        report_owners["$report_name"]="$host"
+        cbom_file="$cbom_dir/${report_name}.json"
+        csv_file="$csv_dir/${report_name}.csv"
 
-	exit_code="$?"
-	set -e
+        echo "[+] Genereren van CBOM: $report_name"
+        if python3 "$parse_dir/testssl_parser.py" "$endpoint_file" |
+            python3 "$parse_dir/cbom_generator.py" -o "$cbom_file"
+        then
+            :
+        else
+            echo "[!] CBOM generatie mislukt: $report_name" >&2
+            report_failed=1
+            continue
+        fi
 
-	# Alert de gebruiker als de generatie van de CBOM niet is gelukt
-	if [[ "$exit_code" -ne 0 ]]; then
-		echo "[!] CBOM generatie voor $ip:$port is mislukt" >&2
-		continue
-	fi
+        if "$base_dir/crypto_tools/cyclonedx-cli" validate \
+            --input-file "$cbom_file" --input-format json \
+            --input-version v1_6 --fail-on-errors >/dev/null
+        then
+            echo "[+] CBOM gevalideerd: $report_name"
+        else
+            echo "[!] CBOM validatie mislukt: $report_name" >&2
+            report_failed=1
+            continue
+        fi
 
-	# Unset -e, zodat het falen van dit script de loop niet afbreekt.
-	set +e
-	verification=$("$base_dir/crypto_tools/cyclonedx-cli" "validate" "--input-file" "$cbom_dir/${ip}_${port}_cbom.json" "--input-format" "json" "--input-version" "v1_6" | tail -n 1)
-	set -e
-
-	if [[ "$verification" == "BOM validated successfully." ]]; then
-		echo "[+] ${ip}_${port}_cbom.json is successvol gevalideerd"
-
-		# Enkel .csv genereren als --csv flag aanwezig is
-		if [[ "$csv" == true ]]; then
-			echo "[+] Genereren van CSV voor $ip:$port"
-
-			set +e
-			/usr/bin/env python3 "$parse_dir/cbom_to_csv.py" "$cbom_dir/${ip}_${port}_cbom.json" -o "$csv_dir/${ip}_${port}_cbom.csv"
-
-			exit_code="$?"
-			set -e
-
-			# Alert de gebruiker als de generatie van het .csv bestand niet successvol was
-			if [[ "$exit_code" -ne 0 ]]; then
-				echo "[!] Fout bij het genereren van een .csv bestand voor $ip:$port" >&2
-			else
-				echo "[+] ${ip}_${port}_cbom.csv is successvol gegenereerd"
-			fi
-		fi
-	else
-		echo "[!] Valideren van ${ip}_${port}_cbom.json was niet successvol, run '$base_dir/crypto_tools/cyclonedx-cli validate --input-file $cbom_dir/${ip}_${port}_cbom.json --input-format json --input-version v1_6 --fail-on-errors' om het probleem te vinden"
-	fi
+        if [[ "$csv" == true ]]; then
+            if python3 "$parse_dir/cbom_to_csv.py" "$cbom_file" -o "$csv_file"; then
+                echo "[+] CSV gegenereerd: $report_name"
+            else
+                echo "[!] CSV generatie mislukt: $report_name" >&2
+                report_failed=1
+            fi
+        fi
+    done <<< "$endpoint_files"
 done
+exit "$report_failed"

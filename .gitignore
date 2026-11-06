@@ -4,3 +4,5 @@ cboms
 targets.txt
 csv
 __pycache__
+*.pyc
+tests

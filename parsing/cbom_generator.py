@@ -439,6 +439,11 @@ def generate_cbom(scan_data: dict, metadata: dict | None = None) -> dict:
             {"name": "testssl:ip", "value": scan_data["ip"]}
         ]
 
+    if scan_data.get("hostname"):
+        metadata["properties"] = metadata.get("properties", []) + [
+            {"name": "testssl:hostname", "value": scan_data["hostname"]}
+        ]
+
     # Toevoegen van (on)gebruikte protocollen als metadata met classificatie of zij gebruikt worden
     protocol_metadata = protocols_to_metadata(scan_data.get("protocols", {}))
 
