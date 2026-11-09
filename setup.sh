@@ -6,7 +6,7 @@ set -uo pipefail
 # Het script staat in de root van de toolkit, dus de crypto_tools directory ligt naast het script
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 tool_dir="$script_dir/crypto_tools"
-scan_dir="$script_dir/scanning"
+scan_dir="$script_dir/network"
 
 # Versies van de te installeren tools
 testssl_version="3.2.4"

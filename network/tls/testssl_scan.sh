@@ -5,12 +5,12 @@ set -uo pipefail
 # Vinden van de base directory van de crypto toolkit
 start_dir="$(pwd)"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-base_dir="$(dirname "$script_dir")"
+base_dir="$(dirname "$(dirname "$script_dir")")"
 
 cd "$start_dir"
 
 # Parsen van command-line arguments
-source "$base_dir/scanning/arguments.sh"
+source "$base_dir/network/arguments.sh"
 
 # Vereisen van target directory naam
 if [[ "$output" == "" ]] || [[ ! "$output" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -28,15 +28,15 @@ testssl_results_dir="$base_dir/results/testssl"
 # The parent supplies its start date so a run crossing midnight stays together.
 run_date="${SS_CRYPTO_RUN_DATE:-$(date +%Y-%m-%d)}"
 if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-    echo "[!] Ongeldige run-datum: $run_date" >&2
-    exit 1
+	echo "[!] Ongeldige run-datum: $run_date" >&2
+	exit 1
 fi
 run_output="${output}_${run_date}"
 testssl_log_dir="$testssl_results_dir/$run_output"
-targets_file="$base_dir/targets.txt"
+targets_file="$base_dir/network/tls/tls_targets.txt"
 
-# Aanroepen van creatie van hosts en targets variable length arrays vanuit target.txt
-source "$base_dir/scanning/get_targets.sh" "$targets_file" >/dev/null
+# Aanroepen van creatie van hosts en targets variable length arrays vanuit tls_targets.txt
+source "$base_dir/network/get_targets.sh" -t "$targets_file" >/dev/null
 
 # Check voor het bestaan van de target logging directory, abort als deze al bestaat en de -f flag niet is gebruikt
 if [[ -d "$testssl_log_dir" ]]; then
@@ -62,7 +62,7 @@ echo "[+] Starten van testssl.sh scan, circa 2 minuten per target"
 
 # Loop voor het uitvoeren van de scan op elke gevonden host + port combinatie
 failed_targets_file="$testssl_log_dir/failed_targets.txt"
-: > "$failed_targets_file" || exit 1
+: >"$failed_targets_file" || exit 1
 scan_failed=0
 for index in "${!hosts[@]}"; do
 	# Aanname om niet te scannen en extracten van hosts en port uit arrays
@@ -110,13 +110,13 @@ for index in "${!hosts[@]}"; do
 		# Waarschuwing naar stdout als de scan mislukt
 		if [[ "$exit_code" -ne 0 ]]; then
 			echo "[!] Geen succesvolle verbinding/scan voor $host:$port; overige targets gaan door. Zie $testssl_log_dir/${host}_${port}.log" >&2
-            printf '%s\n' "$host:$port" >> "$failed_targets_file" || exit 1
-            scan_failed=$((scan_failed + 1))
-            # Keep failed output for diagnostics, but never reuse it as a cached scan.
-            if [[ -f "$testssl_log_dir/${host}_${port}.json" ]]; then
-                mv "$testssl_log_dir/${host}_${port}.json" \
-                    "$testssl_log_dir/${host}_${port}.failed.json" || exit 1
-            fi
+			printf '%s\n' "$host:$port" >>"$failed_targets_file" || exit 1
+			scan_failed=$((scan_failed + 1))
+			# Keep failed output for diagnostics, but never reuse it as a cached scan.
+			if [[ -f "$testssl_log_dir/${host}_${port}.json" ]]; then
+				mv "$testssl_log_dir/${host}_${port}.json" \
+					"$testssl_log_dir/${host}_${port}.failed.json" || exit 1
+			fi
 		fi
 	else
 		# Als de gevonden log in een andere output directory staat wordt deze gekopieerd, zodat de huidige output directory compleet is
@@ -132,7 +132,7 @@ done
 echo ""
 echo "[+] Scan met testssl.sh compleet"
 if [[ "$scan_failed" -gt 0 ]]; then
-    echo "[!] $scan_failed target(s) mislukt; zie $failed_targets_file" >&2
+	echo "[!] $scan_failed target(s) mislukt; zie $failed_targets_file" >&2
 fi
 # Individual target failures are warnings; setup failures still exit nonzero.
 exit 0

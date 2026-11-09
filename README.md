@@ -11,7 +11,7 @@ Een toolkit voor het maken van een cryptografische inventaris met behulp van Cyc
 ## Algoritmen aanpassen
 
 De matchingregels en algoritmetabellen staan in twee bestanden:
-- `parsing/testssl_algorithms.py`: mappings en regex voor de `testssl_parser.py`.
+- `parsing/tls/testssl_algorithms.py`: mappings en regex voor de `testssl_parser.py`.
 - `parsing/cbom_algorithms.py`: mappings en regex voor `cbom_generator.py`.
 
 De parsing scripts `testssl_parser.py` en `cbom_generator.py` importeren deze bestanden. Wanneer aanpassingen nodig zijn kunnen de regex en mappings hier worden veranderd of aangevuld.
@@ -27,29 +27,30 @@ Deze stap installeert de dependencies `testssl.sh` en `cyclonedx-cli`, en zet de
 - `chmod +x setup.sh`
 - `./setup.sh`
 
-### 2. Configureer targets.txt
+### 2. Configureer tls_targets.txt
 
-Edit `targets.txt` in de `ss_crypto_toolkit` directory door per line een target van de vorm `ip:port` toe te voegen:
+Edit `network/tls/tls_targets.txt` in de `ss_crypto_toolkit` directory door per line een target van de vorm `host:port` toe te voegen:
 
 ```
 192.168.1.42:443
 127.0.0.1:22
+localhost:443
 10.0.0.1:8443
 ```
 
 ### 3. Scannen
 
-De scanscripts maken gebruik van `targets.txt` om de scan uit te voeren op deze targets. De resultaten worden in `ss_crypto_toolkit/results`, `ss_crypto_toolkit/cboms` en mogelijk `ss_crypto_toolkit/csv`. Een simpele scan kan als volgt worden uitgevoerd:
+De scanscripts maken gebruik van `network/tls/tls_targets.txt` om de scan uit te voeren op deze targets. De resultaten worden in `ss_crypto_toolkit/results`, `ss_crypto_toolkit/cboms` en mogelijk `ss_crypto_toolkit/csv`. Een simpele scan kan als volgt worden uitgevoerd:
 
-`./scanning/remote_scan.sh -o exampledirectory1`
+`./network/remote_scan.sh -o exampledirectory1`
 
 Om een nieuwe scan te forceren kan de `-f` flag gebruikt worden:
 
-`./scanning/remote_scan.sh -o exampledirectory2 -f`
+`./network/remote_scan.sh -o exampledirectory2 -f`
 
 Met de `--csv` flag wordt na succesvolle CBOM-validatie ook een CSV bestand aangemaakt in `ss_crypto_toolkit/csv. Zonder deze flag worden alleen CBOMs gegenereerd.
 
-`./scanning/remote_scan.sh -o exampledirectory3 --csv`
+`./network/remote_scan.sh -o exampledirectory3 --csv`
 
 De ruwe scanresultaten zijn te vinden in `ss_crypto_toolkit/results`, terwijl de meest recente CBOMs en CSVs aanwezig zijn in `ss_crypto_toolkit/cboms` en `ss_crypto_toolkit/csv` respectievelijk.
 

@@ -2,7 +2,32 @@
 
 set -uo pipefail
 
-targets_file="$1"
+targets_file=""
+
+# Parsen van command-line arguments
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	-t | --targets)
+		if [[ $# -lt 2 ]] || [[ -z "${2:-}" ]]; then
+			echo "[!] Geen targets file genoemd bij de -t flag"
+			exit 1
+		fi
+
+		targets_file="$2"
+		shift 2
+		;;
+	*)
+		echo "[!] Onbekende optie aangegeven: $1" >&2
+		exit 1
+		;;
+	esac
+done
+
+# Vereisen van een meegegeven targets file
+if [[ -z "$targets_file" ]]; then
+	echo "[!] Geen targets file gespecificeerd, het script wordt gesloten. (Gebruik: -t \"tls_targets.txt\")"
+	exit 1
+fi
 
 # Check voor het bestaan van de file met scan targets
 if [[ ! -s "$targets_file" ]]; then
@@ -29,7 +54,7 @@ get_host_and_port() {
 
 	# Matcht de regex waaraan de line dient te voldoen
 	if [[ "$line" != *:* || ! "$port" =~ $port_regex ]] ||
-		(( port > 65535 )); then
+		((port > 65535)); then
 		echo "[!] Ongeldig doel: $line (geldig: \"host:port\")" >&2
 		exit 1
 	fi
