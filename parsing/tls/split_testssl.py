@@ -3,55 +3,7 @@ import ipaddress
 import json
 import sys
 from pathlib import Path
-
-
-# Splitsen van meerdere testssl-output files in resultaten
-def split_findings(data: list[dict]) -> dict:
-    if not isinstance(data, list):
-        raise ValueError("[!] Verwachtte input van JSON-array met findings")
-    groups = {}
-    for entry in data:
-        if not isinstance(entry, dict):
-            raise ValueError("[!] Niet elke finding is een object")
-
-        raw = entry.get("ip", "")
-
-        if not isinstance(raw, str):
-            raise ValueError("[!] Ongeldig IP-adres veld in JSON")
-
-        hostname, separator, address = raw.rpartition("/")
-
-        if not separator:
-            hostname, address = "", raw
-
-        try:
-            ip = str(ipaddress.ip_address(address.strip("[]")))
-            port_text = str(entry["port"])
-
-            if not port_text.isascii() or not port_text.isdecimal():
-                raise ValueError("[!] Ongeldige port")
-
-            port = int(port_text)
-
-            if not 1 <= port <= 65535:
-                raise ValueError(
-                    f"[!] Ongeldige port, port buiten geldige range: {port}"
-                )
-
-        except (ValueError, TypeError, KeyError):
-            print(
-                f"[!] Overslaan van finding zonder geldig eindpunt, of een fout bij het verbinden met eindpunt: {entry.get('id')}",
-                file=sys.stderr,
-            )
-
-            continue
-
-        groups.setdefault((hostname, ip, port), []).append(entry)
-
-    if not groups:
-        raise ValueError("[!] Geen valide eindpunten in scan-output")
-
-    return groups
+from testssl_parser import split_findings
 
 
 def main() -> None:

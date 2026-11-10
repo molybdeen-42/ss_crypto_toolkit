@@ -25,12 +25,15 @@ fi
 
 # Initialisatie van log directory en target file variabelen
 testssl_results_dir="$base_dir/results/testssl"
-# The parent supplies its start date so a run crossing midnight stays together.
-run_date="${SS_CRYPTO_RUN_DATE:-$(date +%Y-%m-%d)}"
-if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-	echo "[!] Ongeldige run-datum: $run_date" >&2
+
+# Start tijd van het script wordt doorgegeven door remote_scan.sh
+run_date="${SS_CRYPTO_RUN_DATE:-$(date +%Y-%m-%d_%H:%M)}"
+
+if [[ ! "$run_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+	echo "[!] Ongeldige run-timestamp: $run_date" >&2
 	exit 1
 fi
+
 run_output="${output}_${run_date}"
 testssl_log_dir="$testssl_results_dir/$run_output"
 targets_file="$base_dir/network/tls/tls_targets.txt"
@@ -131,8 +134,10 @@ done
 
 echo ""
 echo "[+] Scan met testssl.sh compleet"
+
+# Vermelden van gefaalde targets
 if [[ "$scan_failed" -gt 0 ]]; then
 	echo "[!] $scan_failed target(s) mislukt; zie $failed_targets_file" >&2
 fi
-# Individual target failures are warnings; setup failures still exit nonzero.
+
 exit 0

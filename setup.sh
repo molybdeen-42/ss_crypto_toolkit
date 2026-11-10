@@ -10,6 +10,7 @@ scan_dir="$script_dir/network"
 
 # Versies van de te installeren tools
 testssl_version="3.2.4"
+ssh_audit_version="3.9.0"
 cyclonedx_version="0.33.1"
 
 # Aanmaken van de crypto_tools directory als deze nog niet bestaat
@@ -18,27 +19,31 @@ if [[ ! -d "$tool_dir" ]]; then
 	mkdir -p "$tool_dir"
 fi
 
-# Maakt targets.txt file aan
-echo "[+] Targets file targets.txt wordt aangemaakt"
-touch "$script_dir/targets.txt"
+# Maakt de TLS- en SSH-targetsfiles aan
+echo "[+] Targets file network/tls/tls_targets.txt wordt aangemaakt"
+touch "$script_dir/network/tls/tls_targets.txt"
+
+echo "[+] Targets file network/ssh/ssh_targets.txt wordt aangemaakt"
+touch "$script_dir/network/ssh/ssh_targets.txt"
 
 # Executable maken van benodigde scripts
 chmod +x "$scan_dir/remote_scan.sh"
-chmod +x "$scan_dir/testssl_scan.sh"
+chmod +x "$scan_dir/tls/testssl_scan.sh"
+chmod +x "$scan_dir/ssh/ssh-audit_scan.sh"
 
 # Bepalen van de juiste download voor de architectuur van deze machine
 architecture="$(uname -m)"
 case "$architecture" in
-	x86_64)
-		cyclonedx_asset="cyclonedx-linux-x64"
-		;;
-	aarch64)
-		cyclonedx_asset="cyclonedx-linux-arm64"
-		;;
-	*)
-		echo "[!] Ongesupporte architectuur voor cyclonedx-cli: $architecture" >&2
-		exit 1
-		;;
+x86_64)
+	cyclonedx_asset="cyclonedx-linux-x64"
+	;;
+aarch64)
+	cyclonedx_asset="cyclonedx-linux-arm64"
+	;;
+*)
+	echo "[!] Ongesupporte architectuur voor cyclonedx-cli: $architecture" >&2
+	exit 1
+	;;
 esac
 
 # Installatie van testssl.sh als deze nog niet aanwezig is
@@ -46,10 +51,23 @@ if [[ -f "$tool_dir/testssl.sh-$testssl_version/testssl.sh" ]]; then
 	echo "[+] testssl.sh versie $testssl_version is al geinstalleerd in $tool_dir"
 else
 	echo "[+] Downloaden en installeren van testssl.sh versie $testssl_version in $tool_dir"
-	curl -fSL "https://github.com/drwetter/testssl.sh/archive/refs/tags/v${testssl_version}.tar.gz" | tar -xz -C "$tool_dir"
+	curl -fSL "https://github.com/testssl/testssl.sh/archive/refs/tags/v${testssl_version}.tar.gz" | tar -xz -C "$tool_dir"
 
 	if [[ ! -f "$tool_dir/testssl.sh-$testssl_version/testssl.sh" ]]; then
 		echo "[!] Installatie van testssl.sh versie $testssl_version is mislukt" >&2
+		exit 1
+	fi
+fi
+
+# Installatie van ssh-audit als deze nog niet aanwezig is
+if [[ -f "$tool_dir/ssh-audit-$ssh_audit_version/ssh-audit.py" ]]; then
+	echo "[+] ssh-audit versie $ssh_audit_version is al geinstalleerd in $tool_dir"
+else
+	echo "[+] Downloaden en installeren van ssh-audit versie $ssh_audit_version in $tool_dir"
+	curl -fSL "https://github.com/jtesta/ssh-audit/archive/refs/tags/v${ssh_audit_version}.tar.gz" | tar -xz -C "$tool_dir"
+
+	if [[ ! -f "$tool_dir/ssh-audit-$ssh_audit_version/ssh-audit.py" ]]; then
+		echo "[!] Installatie van ssh-audit versie $ssh_audit_version is mislukt" >&2
 		exit 1
 	fi
 fi
